@@ -7,7 +7,9 @@ on:
 
 jobs:
 
-  build:
+# ---------------- WINDOWS BUILD ----------------
+
+  build-windows:
     runs-on: windows-latest
 
     steps:
@@ -20,27 +22,72 @@ jobs:
       - name: Build Solution
         run: msbuild Template_console_application_cpp.sln /p:Configuration=Release
 
-      - name: Prepare Release Folder
+      - name: Prepare artifact
         run: |
           mkdir release
-          copy x64\Release\Template_console_application_cpp.exe release\Template_console_application_cpp.exe
+          copy x64\Release\Template_console_application_cpp.exe release\Template_console_application_cpp-windows.exe
         shell: cmd
 
-      - name: Upload Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: release/
-          
-  release:
-    needs: build
+
+# ---------------- LINUX BUILD ----------------
+
+  build-linux:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Publish Release
+      - name: Install compiler
+        run: sudo apt-get update && sudo apt-get install -y g++
+
+      - name: Build
+        run: g++ Template_console_application_cpp.cpp -o Template_console_application_cpp-linux
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: Template_console_application_cpp-linux
+
+# ---------------- MAC BUILD ----------------
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: clang++ Template_console_application_cpp.cpp -o Template_console_application_cpp-macos
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: Template_console_application_cpp-macos
+
+
+# ---------------- RELEASE ----------------
+
+  release:
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             windows-build/*
+            linux-build/*
+            macos-build/*
